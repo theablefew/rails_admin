@@ -72,6 +72,19 @@
           '</select>'
           var additional_control = '<input class="additional-fieldset input-small" style="display:' + (field_operator == "_blank" || field_operator == "_present" ? 'none' : 'inline-block') + ';" type="text" name="' + value_name + '" value="' + field_value + '" /> ';
           break;
+        case 'integer':
+          var control = '<select class="switch-additionnal-fieldsets input-small" name="' + operator_name + '">' +
+            '<option ' + (field_operator == "default"   ? 'selected="selected"' : '') + ' data-additional-fieldset="default" value="default">Number ...</option>' +
+            '<option ' + (field_operator == "between"   ? 'selected="selected"' : '') + ' data-additional-fieldset="between" value="between">Between ... and ...</option>' +
+            '<option disabled="disabled">---------</option>' +
+            '<option ' + (field_operator == "_not_null" ? 'selected="selected"' : '') + ' value="_not_null">Is present</option>' +
+            '<option ' + (field_operator == "_null"     ? 'selected="selected"' : '') + ' value="_null" >Is blank</option>' +
+          '</select>'
+          var additional_control = 
+          '<input class="additional-fieldset default input-small" style="display:' + ((!field_operator || field_operator == "default") ? 'inline-block' : 'none') + ';" type="integer" name="' + value_name + '[]" value="' + (field_value[0] || '') + '" /> ' + 
+          '<input placeholder="-∞" class="additional-fieldset between input-small" style="display:' + ((field_operator == "between") ? 'inline-block' : 'none') + ';" type="integer" name="' + value_name + '[]" value="' + (field_value[1] || '') + '" /> ' + 
+          '<input placeholder="∞" class="additional-fieldset between input-small" style="display:' + ((field_operator == "between") ? 'inline-block' : 'none') + ';" type="integer" name="' + value_name + '[]" value="' + (field_value[2] || '') + '" />';
+          break;
         default:
           var control = '<input type="text" class="input-small" name="' + value_name + '" value="' + field_value + '"/> ';
           break;
@@ -88,7 +101,7 @@
     }
   }
 
-  $("#filters a").live('click', function(e) {
+  $(document).on('click', "#filters a", function(e) {
     e.preventDefault();
     $.filters.append(
       $(this).data('field-label'),
@@ -101,14 +114,14 @@
     );
   });
 
-  $('#filters_box .delete').live('click', function(e) {
+  $(document).on('click', "#filters_box .delete", function(e) {
     e.preventDefault();
     form = $(this).parents('form');
     $(this).parents('.filter').remove();
     !$("#filters_box").children().length && $("hr.filters_box:visible").hide('slow');
   });
 
-  $('#filters_box .switch-select').live('click', function(e) {
+  $(document).on('click', "#filters_box .switch-select", function(e) {
     e.preventDefault();
     var selected_select = $(this).siblings('select:visible');
     var not_selected_select = $(this).siblings('select:hidden');
@@ -117,7 +130,7 @@
     $(this).find('i').toggleClass("icon-plus icon-minus")
   });
 
-  $('#filters_box .switch-additionnal-fieldsets').live('change', function() {
+  $(document).on('change', "#filters_box .switch-additionnal-fieldsets", function(e) {
     var selected_option = $(this).find('option:selected');
     if(klass = $(selected_option).data('additional-fieldset')) {
       $(this).siblings('.additional-fieldset:not(.' + klass + ')').hide('slow');

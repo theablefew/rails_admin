@@ -4,7 +4,7 @@ require 'rails_admin/adapters/active_record/abstract_object'
 module RailsAdmin
   module Adapters
     module ActiveRecord
-      DISABLED_COLUMN_TYPES = [:tsvector, :blob, :binary, :spatial, :hstore]
+      DISABLED_COLUMN_TYPES = [:tsvector, :blob, :binary, :spatial, :hstore, :geometry]
       DISABLED_COLUMN_MATCHERS = [/_array$/]
 
       def ar_adapter
@@ -107,6 +107,10 @@ module RailsAdmin
         false
       end
 
+      def adapter_supports_joins?
+        true
+      end
+
       private
 
       def query_conditions(query, fields = config.list.fields.select(&:queryable?))
@@ -171,27 +175,47 @@ module RailsAdmin
         when :boolean
           return ["(#{column} IS NULL OR #{column} = ?)", false] if ['false', 'f', '0'].include?(value)
           return ["(#{column} = ?)", true] if ['true', 't', '1'].include?(value)
-        when :decimal
+        when :decimal, :float
           return if value.blank?
-          ["(#{column} = ?)", value.to_f] if value.to_f.to_s == value
-        when :integer, :belongs_to_association
+          ["(#{column} = ?)", value.to_f] if value.to_f.to_s == value || value.to_i.to_s == value
+        when :integer
+          case value
+          when Array then
+            val, range_begin, range_end = *value.map{|v| v.blank? ? nil : (v == v.to_i.to_s) ? v.to_i : nil}
+            case operator
+            when 'between'
+              if range_begin && range_end
+                ["(#{column} BETWEEN ? AND ?)", range_begin, range_end]
+              elsif range_begin
+                ["(#{column} >= ?)", range_begin]
+              elsif range_end
+                ["(#{column} <= ?)", range_end]
+              end
+            else
+              ["(#{column} = ?)", val] if val
+            end
+          else
+            s = value.to_s
+            return s =~ /^[\-]?\d+$/ ? ["(#{column} = ?)", s.to_i] : nil
+          end
+        when :belongs_to_association
           return if value.blank?
           ["(#{column} = ?)", value.to_i] if value.to_i.to_s == value
         when :string, :text
           return if value.blank?
           value = case operator
           when 'default', 'like'
-            "%#{value}%"
+            "%#{value.downcase}%"
           when 'starts_with'
-            "#{value}%"
+            "#{value.downcase}%"
           when 'ends_with'
-            "%#{value}"
+            "%#{value.downcase}"
           when 'is', '='
-            "#{value}"
+            "#{value.downcase}"
           else
             return
           end
-          ["(#{column} #{like_operator} ?)", value]
+          ["(LOWER(#{column}) #{like_operator} ?)", value]
         when :date
           start_date, end_date = get_filtering_duration(operator, value)
 
@@ -228,7 +252,7 @@ module RailsAdmin
 
       def association_model_lookup(association)
         if association.options[:polymorphic]
-          RailsAdmin::AbstractModel.polymorphic_parents(:active_record, association.name) || []
+          RailsAdmin::AbstractModel.polymorphic_parents(:active_record, self.model.model_name, association.name) || []
         else
           association.klass
         end
